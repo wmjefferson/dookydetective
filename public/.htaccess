@@ -1,0 +1,20 @@
+<IfModule mod_rewrite.c>
+  # 1. Prevent visitors from seeing lists of files (Directory Privacy)
+  Options -Indexes
+
+  RewriteEngine On
+  RewriteBase /
+
+  # 2. Force WWW
+  # If someone types dookydetective.com, bounce them to www.dookydetective.com
+  RewriteCond %{HTTP_HOST} ^dookydetective\.com$ [NC]
+  RewriteRule ^(.*)$ https://www.dookydetective.com/$1 [L,R=301]
+
+  # 3. React Router Setup
+  # If the file exists, show it. If not, give it to React to handle.
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-l
+  RewriteRule . /index.html [L]
+</IfModule>
