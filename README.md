@@ -2,19 +2,50 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Dooky Detective
 
-This contains everything you need to run your app locally.
+Dooky Detective is a React/Vite image gallery frontend backed by a small Express image API.
 
-View your app in AI Studio: https://ai.studio/apps/c7c034d1-34a2-4a65-94b4-0a52b936ea70
+## Local development
 
-## Run Locally
+Prerequisites:
+- Node.js
 
-**Prerequisites:**  Node.js
+Install dependencies:
 
+```bash
+npm install
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Frontend dev server:
+
+```bash
+npm run dev
+```
+
+Backend image API:
+
+```bash
+npm run server
+```
+
+## Environment
+
+Copy `.env.example` into your local env file and adjust as needed.
+
+Important variables:
+- `VITE_API_BASE_URL`
+- `PORT`
+- `IMAGES_ROOT`
+- `PUBLIC_BASE_URL`
+- `ALLOWED_ORIGINS`
+
+## Production model
+
+- frontend hosted at `https://dookydetective.com`
+- backend served from home server at `https://api.dookydetective.com`
+- image library stored at `E:\dookydetective\images`
+
+## Notes
+
+The legacy `public/get_images.php` file is kept only as a transitional reference. The current architecture should use the dedicated backend service on port `8020`.

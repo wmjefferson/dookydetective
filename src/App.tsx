@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 const pickValidImageSet = (pool: any[]) => {
   if (pool.length < 10) return pool;
   
@@ -193,7 +195,9 @@ function Home({ images }: { images: any[] }) {
             style={{ width: `calc(${widthPercentage}% - ${pxOffset}px)` }}
           >
             {row.map(img => (
-              <ImageCard key={img.id} src={img.src} title={img.title} width={img.width} height={img.height} />
+              <div key={img.id}>
+                <ImageCard src={img.src} title={img.title} width={img.width} height={img.height} />
+              </div>
             ))}
           </div>
         );
@@ -213,7 +217,7 @@ function AppContent() {
   const [refreshCount, setRefreshCount] = useState(0);
 
   useEffect(() => {
-    fetch('/get_images.php')
+    fetch(`${API_BASE}/api/images`)
       .then(res => {
         const contentType = res.headers.get("content-type");
         if (res.ok && contentType && contentType.includes("application/json")) {
