@@ -1,9 +1,14 @@
 import cors, { type CorsOptions } from 'cors';
+import dotenv from 'dotenv';
 import express from 'express';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { imageSize } from 'image-size';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: process.env.DOOKY_ENV_FILE || path.join(__dirname, '.env') });
 
 const app = express();
 
@@ -14,10 +19,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://dookydetective.c
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);
-
 const validExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const corsOptions: CorsOptions = {
   origin(origin, callback) {
