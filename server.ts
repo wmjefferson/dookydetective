@@ -114,13 +114,79 @@ app.get('/api/images', async (_req, res) => {
   }
 });
 
+app.get('/', (_req, res) => {
+  res.type('html').send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dooky Detective API</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f3f4f6;
+        color: #111827;
+        font: 16px/1.5 "Segoe UI", Arial, sans-serif;
+      }
+      main {
+        width: min(560px, calc(100vw - 48px));
+        padding: 28px 32px;
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(17, 24, 39, 0.08);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+      p {
+        margin: 0 0 16px;
+      }
+      code {
+        display: inline-block;
+        padding: 2px 6px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+      }
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Dooky Detective API</h1>
+      <p>The image service is running.</p>
+      <ul>
+        <li><code>/health</code> returns service status</li>
+        <li><code>/api/images</code> returns the image feed</li>
+      </ul>
+    </main>
+  </body>
+</html>`);
+});
+
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/images/')) {
     next();
     return;
   }
 
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.status(404).type('html').send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Not Found</title>
+  </head>
+  <body>
+    <p>Not found.</p>
+  </body>
+</html>`);
 });
 
 app.listen(PORT, () => {
