@@ -29,6 +29,12 @@ Backend image API:
 npm run server
 ```
 
+The repo now supports a fully local loop by default:
+
+- the frontend reads [`.env.development`](/C:/Users/wmjef/Desktop/Precious%20Box/Dotcoms/dookydetective/.env.development)
+- the backend falls back to the repo-local [`images`](/C:/Users/wmjef/Desktop/Precious%20Box/Dotcoms/dookydetective/images) folder if `E:\dookydetective\images` is not available
+- the backend defaults `PUBLIC_BASE_URL` to `http://localhost:8020` when no production env is set
+
 ## Environment
 
 Copy `.env.example` into your local env file and adjust as needed.
@@ -48,4 +54,6 @@ Important variables:
 
 ## Notes
 
-The legacy `public/get_images.php` file is kept only as a transitional reference. The current architecture should use the dedicated backend service on port `8020`.
+- The legacy `public/get_images.php` file is kept only as a transitional reference.
+- The current architecture should use the dedicated backend service on port `8020`.
+- The local repo is the source of truth; the home server should be a deployment target, not the only place where the backend logic lives.

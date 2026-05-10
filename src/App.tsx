@@ -52,16 +52,35 @@ const generatePicsumImages = () => {
 
 function ImageCard({ src, title, width, height }: { src: string, title: string, width: number, height: number }) {
   return (
-    <div style={{ flex: width / height }}>
-      <img src={src} alt={title} className="w-full h-auto object-cover block" referrerPolicy="no-referrer" />
+    <div style={{ flex: width / height, minWidth: 0 }}>
+      <img src={src} alt={title} className="w-full h-full object-cover block" referrerPolicy="no-referrer" />
     </div>
   )
+}
+
+function preloadImage(src: string) {
+  return new Promise<void>((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = async () => {
+      try {
+        if (typeof image.decode === 'function') {
+          await image.decode();
+        }
+      } catch {
+        // Some browsers can reject decode() for otherwise usable images.
+      }
+      resolve();
+    };
+    image.onerror = () => reject(new Error(`Failed to load ${src}`));
+    image.src = src;
+  });
 }
 
 function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount }: { children: React.ReactNode, onRefresh: () => void, autoRefresh: 'Off' | number, setAutoRefresh: (val: 'Off' | number) => void, refreshCount: number }) {
   const location = useLocation();
   const isHome = location.pathname === '/';
   const [pos, setPos] = useState({ left: -15, top: 50 });
+  const [titleReady, setTitleReady] = useState(false);
 
   const randomizePos = useCallback(() => {
     setPos({
@@ -73,6 +92,21 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
   useEffect(() => {
     randomizePos();
   }, [randomizePos, refreshCount]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTitleReady(false);
+
+    requestAnimationFrame(() => {
+      if (!cancelled) {
+        setTitleReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshCount]);
 
   const handleLogoClick = (e: React.MouseEvent) => {
     if (isHome) {
@@ -88,12 +122,13 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
       <Link 
         to="/" 
         onClick={handleLogoClick} 
-        className="fixed w-[130vw] text-left text-white font-balsamiq font-normal z-50 text-[18vw] leading-none whitespace-nowrap -translate-y-1/2"
+        className="fixed w-[130vw] text-left text-white font-balsamiq font-normal z-50 text-[18vw] leading-none whitespace-nowrap -translate-y-1/2 transition-opacity duration-[250ms]"
         style={{ 
           left: `${pos.left}vw`,
           top: `${pos.top}vh`,
           letterSpacing: '-0.08em',
-          wordSpacing: '0.08em'
+          wordSpacing: '0.08em',
+          opacity: titleReady ? 1 : 0
         }}
       >
         dooky detective
@@ -156,6 +191,45 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
 }
 
 function Home({ images }: { images: any[] }) {
+  const [boardReady, setBoardReady] = useState(false);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    setBoardReady(false);
+
+    Promise.all(images.map(image => preloadImage(image.src)))
+      .catch(() => {
+        // If one image has trouble loading, avoid hanging the whole board forever.
+      })
+      .finally(() => {
+        if (!cancelled) {
+          requestAnimationFrame(() => {
+            if (!cancelled) {
+              setBoardReady(true);
+            }
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [images]);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setViewport({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
   if (images.length === 0) return null;
 
   const row1 = images.slice(0, 3);
@@ -166,38 +240,38 @@ function Home({ images }: { images: any[] }) {
   const gap = 8; // 8px gap
 
   const rowARs = rows.map(row => row.reduce((sum, img) => sum + (img.width / img.height), 0));
-  const maxARValue = Math.max(...rowARs);
-  const maxARIndex = rowARs.indexOf(maxARValue);
-  const maxGapPixels = (rows[maxARIndex].length - 1) * gap;
-
-  // Calculate the maximum width based on available viewport height to prevent vertical scrolling
-  // Available height = 100vh - 64px (footer) - 64px (py-8) = 100vh - 128px
-  // Total gap height = 16px (2 gaps of 8px)
-  // Max row height = (100vh - 144px) / 3
-  // Max width = Max row height * maxARValue + maxGapPixels
-  const maxWidthCalc = `max(300px, calc((100vh - 144px) * ${maxARValue / 3} + ${maxGapPixels}px))`;
+  const rowGapPixels = rows.map(row => (row.length - 1) * gap);
+  const footerHeight = 64;
+  const mainVerticalPadding = 64;
+  const availableHeight = Math.max(320, viewport.height - footerHeight - mainVerticalPadding);
+  const boardBound = Math.max(280, Math.floor(Math.min(viewport.width || 0, availableHeight) * 0.9));
+  const heightLimit = (boardBound - gap * (rows.length - 1)) / rows.length;
+  const widthLimit = Math.min(
+    ...rowARs.map((rowAR, index) => ((boardBound - rowGapPixels[index]) / rowAR))
+  );
+  const sharedRowHeight = Math.max(72, Math.floor(Math.min(heightLimit, widthLimit)));
+  const boardWidth = Math.max(
+    ...rowARs.map((rowAR, index) => Math.floor(sharedRowHeight * rowAR + rowGapPixels[index]))
+  );
 
   return (
-    <div 
-      className="flex flex-col items-center gap-2 w-full"
-      style={{ maxWidth: '80vw', width: maxWidthCalc }}
+    <div
+      className="flex flex-col items-center gap-2 w-full transition-opacity duration-[250ms]"
+      style={{ width: `${boardWidth}px`, maxWidth: '90vw', opacity: boardReady ? 1 : 0 }}
     >
       {rows.map((row, i) => {
-        const rowAR = rowARs[i];
-        const rowGapPixels = (row.length - 1) * gap;
-        const widthPercentage = (rowAR / maxARValue) * 100;
-        const pxOffset = maxGapPixels * (rowAR / maxARValue) - rowGapPixels;
+        const rowWidth = Math.floor(sharedRowHeight * rowARs[i] + rowGapPixels[i]);
         
         return (
           <div 
             key={i} 
             className="flex flex-row gap-2"
-            style={{ width: `calc(${widthPercentage}% - ${pxOffset}px)` }}
+            style={{ width: `${rowWidth}px`, height: `${sharedRowHeight}px` }}
           >
             {row.map(img => (
-              <div key={img.id}>
+              <React.Fragment key={img.id}>
                 <ImageCard src={img.src} title={img.title} width={img.width} height={img.height} />
-              </div>
+              </React.Fragment>
             ))}
           </div>
         );
@@ -226,7 +300,7 @@ function AppContent() {
         throw new Error('PHP script not available');
       })
       .then(data => {
-        if (Array.isArray(data) && data.length >= 10) {
+        if (Array.isArray(data) && data.length > 0) {
           setServerPool(data);
           setImages(pickValidImageSet(data));
         } else {
@@ -242,7 +316,7 @@ function AppContent() {
   }, []);
 
   const handleRefresh = useCallback(() => {
-    if (serverPool && serverPool.length >= 10) {
+    if (serverPool && serverPool.length > 0) {
       setImages(pickValidImageSet(serverPool));
     } else {
       setImages(generatePicsumImages());
