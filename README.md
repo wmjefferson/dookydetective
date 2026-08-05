@@ -1,5 +1,5 @@
 <div align="center">
-<img width="1200" height="475" alt="Dooky Detective banner" src="../other/assets/dooky-book.png" />
+<img width="1200" height="475" alt="Dooky Detective banner" src="./dooky-book.png" />
 </div>
 
 # Dooky Detective
