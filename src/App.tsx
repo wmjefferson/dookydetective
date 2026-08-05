@@ -58,6 +58,59 @@ function ImageCard({ src, title, width, height }: { src: string, title: string, 
   )
 }
 
+type BoardLayout = {
+  name: string;
+  rowCounts: number[];
+  equalRowWidths: boolean;
+};
+
+const boardLayouts = {
+  panorama: {
+    name: 'panorama',
+    rowCounts: [10],
+    equalRowWidths: false,
+  },
+  wide: {
+    name: 'wide',
+    rowCounts: [3, 4, 3],
+    equalRowWidths: false,
+  },
+  balanced: {
+    name: 'balanced',
+    rowCounts: [3, 4, 3],
+    equalRowWidths: true,
+  },
+  portrait: {
+    name: 'portrait',
+    rowCounts: [2, 3, 3, 2],
+    equalRowWidths: false,
+  },
+  ribbon: {
+    name: 'ribbon',
+    rowCounts: [1, 2, 1, 2, 1, 2, 1],
+    equalRowWidths: true,
+  },
+} satisfies Record<string, BoardLayout>;
+
+const getBoardLayout = (ratio: number): BoardLayout => {
+  if (ratio >= 2) return boardLayouts.panorama;
+  if (ratio >= 1.5) return boardLayouts.wide;
+  if (ratio >= 1) return boardLayouts.balanced;
+  if (ratio >= 0.5) return boardLayouts.portrait;
+  return boardLayouts.ribbon;
+};
+
+const splitRows = (images: any[], rowCounts: number[]) => {
+  let cursor = 0;
+  return rowCounts
+    .map(count => {
+      const row = images.slice(cursor, cursor + count);
+      cursor += count;
+      return row;
+    })
+    .filter(row => row.length > 0);
+};
+
 function preloadImage(src: string) {
   return new Promise<void>((resolve, reject) => {
     const image = new window.Image();
@@ -79,60 +132,26 @@ function preloadImage(src: string) {
 function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount }: { children: React.ReactNode, onRefresh: () => void, autoRefresh: 'Off' | number, setAutoRefresh: (val: 'Off' | number) => void, refreshCount: number }) {
   const location = useLocation();
   const isHome = location.pathname === '/';
-  const [pos, setPos] = useState({ left: -15, top: 50 });
-  const [titleReady, setTitleReady] = useState(false);
-
-  const randomizePos = useCallback(() => {
-    setPos({
-      left: Math.random() * -30,
-      top: Math.random() * 100
-    });
-  }, []);
-
-  useEffect(() => {
-    randomizePos();
-  }, [randomizePos, refreshCount]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setTitleReady(false);
-
-    requestAnimationFrame(() => {
-      if (!cancelled) {
-        setTitleReady(true);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshCount]);
 
   const handleLogoClick = (e: React.MouseEvent) => {
     if (isHome) {
       e.preventDefault();
       onRefresh();
-      randomizePos();
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#eef0f2] font-sans text-gray-900 relative overflow-x-hidden">
-      {/* Overlay Title */}
-      <Link 
-        to="/" 
-        onClick={handleLogoClick} 
-        className="fixed w-[130vw] text-left text-white font-balsamiq font-normal z-50 text-[18vw] leading-none whitespace-nowrap -translate-y-1/2 transition-opacity duration-[250ms]"
-        style={{ 
-          left: `${pos.left}vw`,
-          top: `${pos.top}vh`,
-          letterSpacing: '-0.08em',
-          wordSpacing: '0.08em',
-          opacity: titleReady ? 1 : 0
-        }}
-      >
-        dooky detective
-      </Link>
+      {/* Top Banner */}
+      <header className="h-[64px] px-6 bg-[#eef0f2] flex items-center justify-start shrink-0 relative z-20">
+        <Link
+          to="/"
+          onClick={handleLogoClick}
+          className="font-sans font-semibold text-sm tracking-normal text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
+        >
+          Dooky Detective
+        </Link>
+      </header>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center py-8 overflow-x-hidden relative z-10">
@@ -232,41 +251,72 @@ function Home({ images }: { images: any[] }) {
 
   if (images.length === 0) return null;
 
-  const row1 = images.slice(0, 3);
-  const row2 = images.slice(3, 7);
-  const row3 = images.slice(7, 10);
-
-  const rows = [row1, row2, row3];
   const gap = 8; // 8px gap
+  const viewportRatio = viewport.height > 0 ? viewport.width / viewport.height : 16 / 9;
+  const layout = getBoardLayout(viewportRatio);
+  const rows = splitRows(images, layout.rowCounts);
 
   const rowARs = rows.map(row => row.reduce((sum, img) => sum + (img.width / img.height), 0));
   const rowGapPixels = rows.map(row => (row.length - 1) * gap);
+  const headerHeight = 64;
   const footerHeight = 64;
+  const pagePaddingX = 32;
   const mainVerticalPadding = 64;
-  const availableHeight = Math.max(320, viewport.height - footerHeight - mainVerticalPadding);
-  const boardBound = Math.max(280, Math.floor(Math.min(viewport.width || 0, availableHeight) * 0.9));
-  const heightLimit = (boardBound - gap * (rows.length - 1)) / rows.length;
-  const widthLimit = Math.min(
-    ...rowARs.map((rowAR, index) => ((boardBound - rowGapPixels[index]) / rowAR))
-  );
-  const sharedRowHeight = Math.max(72, Math.floor(Math.min(heightLimit, widthLimit)));
-  const boardWidth = Math.max(
-    ...rowARs.map((rowAR, index) => Math.floor(sharedRowHeight * rowAR + rowGapPixels[index]))
-  );
+  const availableWidth = Math.max(320, viewport.width - pagePaddingX);
+  const availableHeight = Math.max(320, viewport.height - headerHeight - footerHeight - mainVerticalPadding);
+  const maxBoardWidth = availableWidth * 0.9;
+  const maxBoardHeight = availableHeight * 0.9;
+  const totalVerticalGap = gap * (rows.length - 1);
+  const minRowHeight = layout.name === 'ribbon' ? 48 : 72;
+
+  const sharedRowHeight = (() => {
+    if (layout.equalRowWidths) return 0;
+    const heightBound = (maxBoardHeight - totalVerticalGap) / rows.length;
+    const widthBound = Math.min(
+      ...rowARs.map((rowAR, index) => (maxBoardWidth - rowGapPixels[index]) / rowAR)
+    );
+    return Math.max(minRowHeight, Math.floor(Math.min(heightBound, widthBound)));
+  })();
+
+  const equalBoardWidth = (() => {
+    if (!layout.equalRowWidths) return 0;
+    const inverseAspectSum = rowARs.reduce((sum, rowAR) => sum + (1 / rowAR), 0);
+    const gapAspectOffset = rowGapPixels.reduce((sum, rowGap, index) => sum + (rowGap / rowARs[index]), 0);
+    const heightBoundWidth = (maxBoardHeight - totalVerticalGap + gapAspectOffset) / inverseAspectSum;
+    return Math.max(260, Math.floor(Math.min(maxBoardWidth, heightBoundWidth)));
+  })();
+
+  const rowHeights = rows.map((_, index) => (
+    layout.equalRowWidths
+      ? Math.max(minRowHeight, Math.floor((equalBoardWidth - rowGapPixels[index]) / rowARs[index]))
+      : sharedRowHeight
+  ));
+  const rowWidths = rows.map((_, index) => (
+    layout.equalRowWidths
+      ? equalBoardWidth
+      : Math.floor(sharedRowHeight * rowARs[index] + rowGapPixels[index])
+  ));
+  const boardWidth = Math.max(...rowWidths);
+  const boardHeight = Math.floor(rowHeights.reduce((sum, height) => sum + height, 0) + totalVerticalGap);
 
   return (
     <div
       className="flex flex-col items-center gap-2 w-full transition-opacity duration-[250ms]"
-      style={{ width: `${boardWidth}px`, maxWidth: '90vw', opacity: boardReady ? 1 : 0 }}
+      data-layout={layout.name}
+      style={{
+        width: `${boardWidth}px`,
+        maxWidth: '90vw',
+        maxHeight: '90%',
+        minHeight: `${boardHeight}px`,
+        opacity: boardReady ? 1 : 0,
+      }}
     >
       {rows.map((row, i) => {
-        const rowWidth = Math.floor(sharedRowHeight * rowARs[i] + rowGapPixels[i]);
-        
         return (
           <div 
             key={i} 
             className="flex flex-row gap-2"
-            style={{ width: `${rowWidth}px`, height: `${sharedRowHeight}px` }}
+            style={{ width: `${rowWidths[i]}px`, height: `${rowHeights[i]}px` }}
           >
             {row.map(img => (
               <React.Fragment key={img.id}>
