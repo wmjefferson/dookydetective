@@ -80,32 +80,43 @@ Public API:
 
 ### Production frontend deploy
 
-Build locally:
+Build and publish locally:
 
 ```powershell
 Set-Location "C:\Users\wmjef\Desktop\Precious Box\Dotcoms\dookydetective"
-npm run build
+npm run publish
 ```
 
-Upload the contents of:
+This command:
 
-- `dist\`
+- builds the frontend
+- uploads the contents of `dist\` to the ASO web root for `dookydetective.com`
+- syncs backend source files to the home-server backend folder
 
-to the ASO web root for:
+If `dist\` is already fresh, use:
 
-- `dookydetective.com`
+```powershell
+npm run publish -- --skip-build
+```
 
 ### Production backend deploy
 
-If backend code changed locally:
+If backend code changed locally, `npm run publish` now syncs the relevant backend runtime files to:
 
-1. push local repo changes to GitHub
-2. on the home server, update:
+```powershell
+\\JEFFERSHIZZLE-D\Dotcoms E\dookydetective\backend
+```
+
+The sync preserves live runtime-only files and folders:
+
+- `.env`
+- `images`
+- `node_modules`
+
+After backend code changes, restart the Dooky server on the home server:
 
 ```powershell
 Set-Location E:\dookydetective\backend
-git pull
-npm install
 npm run server
 ```
 
