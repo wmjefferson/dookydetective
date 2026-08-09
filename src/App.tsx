@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const BANNER_HEIGHT = 36;
+const SIDE_GUTTER = 36;
+const TOTAL_BANNER_HEIGHT = BANNER_HEIGHT * 2;
+const TOTAL_SIDE_GUTTER = SIDE_GUTTER * 2;
 
 const pickValidImageSet = (pool: any[]) => {
   if (pool.length < 10) return pool;
@@ -141,48 +145,54 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#eef0f2] font-sans text-gray-900 relative overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-[#FAFAFA] font-sans text-gray-900 relative overflow-x-hidden">
       {/* Top Banner */}
-      <header className="h-[64px] px-6 bg-[#eef0f2] flex items-center justify-start shrink-0 relative z-20">
+      <header className="h-[36px] px-6 bg-[#FAFAFA] flex items-center justify-start shrink-0 relative z-20">
         <Link
           to="/"
           onClick={handleLogoClick}
-          className="font-sans font-semibold text-sm tracking-normal text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
+          className="font-sans font-semibold text-sm leading-none tracking-normal text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
         >
           Dooky Detective
         </Link>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center py-8 overflow-x-hidden relative z-10">
+      <main className="flex-1 flex flex-col items-center justify-center overflow-x-hidden relative z-10 bg-[#eef0f2] px-[36px]">
+        <div className="pointer-events-none absolute left-[36px] top-0 bottom-0 z-[5] border-l border-[#e5e5e5]" />
+        <div className="pointer-events-none absolute right-[36px] top-0 bottom-0 z-[5] border-r border-[#e5e5e5]" />
+        <div className="pointer-events-none absolute left-0 right-0 top-0 z-[5] border-t border-[#e5e5e5]" />
+        <div className="pointer-events-none absolute left-0 right-0 bottom-0 z-[5] border-b border-[#e5e5e5]" />
         {children}
       </main>
 
       {/* Bottom Banner */}
-      <footer className="h-[64px] px-6 bg-[#eef0f2] flex flex-col items-start justify-center shrink-0 relative z-20 gap-1">
-        {isHome && (
-          <div className="flex items-center gap-3 text-xs text-gray-500 font-sans">
-            <span className="font-semibold">Refresh:</span>
-            {(['Off', 10, 30, 60, 120] as const).map(val => (
-              <button 
-                key={val}
-                onClick={() => setAutoRefresh(val)}
-                className={`hover:text-[#de8bf7] transition-colors duration-300 ${autoRefresh === val ? 'text-gray-900 font-bold' : ''}`}
-              >
-                {val}
-              </button>
-            ))}
-          </div>
-        )}
+      <footer className="h-[36px] px-6 bg-[#FAFAFA] flex items-center justify-between shrink-0 relative z-20">
+        <div className="flex items-center gap-3 text-xs text-gray-500 font-sans">
+          {isHome && (
+            <>
+              <span className="font-semibold">Refresh:</span>
+              {(['Off', 10, 30, 60, 120] as const).map(val => (
+                <button
+                  key={val}
+                  onClick={() => setAutoRefresh(val)}
+                  className={`hover:text-[#de8bf7] transition-colors duration-300 ${autoRefresh === val ? 'text-gray-900 font-bold' : ''}`}
+                >
+                  {val}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
         {isHome ? (
           <Link 
             to="/about" 
-            className="font-sans font-semibold text-sm tracking-normal text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
+            className="font-sans font-semibold text-sm leading-none tracking-normal text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
           >
             Jefferson Williams
           </Link>
         ) : (
-          <p className="text-gray-500 text-sm font-sans">
+          <p className="m-0 leading-none text-gray-500 text-sm font-sans">
             Dooky Detective &copy; {new Date().getFullYear()}{' '}
             <a 
               href="https://jeffersonwm.com" 
@@ -258,10 +268,10 @@ function Home({ images }: { images: any[] }) {
 
   const rowARs = rows.map(row => row.reduce((sum, img) => sum + (img.width / img.height), 0));
   const rowGapPixels = rows.map(row => (row.length - 1) * gap);
-  const headerHeight = 64;
-  const footerHeight = 64;
-  const pagePaddingX = 32;
-  const mainVerticalPadding = 64;
+  const headerHeight = BANNER_HEIGHT;
+  const footerHeight = BANNER_HEIGHT;
+  const pagePaddingX = TOTAL_SIDE_GUTTER;
+  const mainVerticalPadding = TOTAL_BANNER_HEIGHT;
   const availableWidth = Math.max(320, viewport.width - pagePaddingX);
   const availableHeight = Math.max(320, viewport.height - headerHeight - footerHeight - mainVerticalPadding);
   const maxBoardWidth = availableWidth * 0.9;

@@ -1,7 +1,7 @@
 {
   "name": "dookydetective",
   "private": true,
-  "version": "0.0.6",
+  "version": "0.0.7",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "server": "tsx server.ts",
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version",
     "lint": "tsc --noEmit",
     "publish": "node scripts/publish.mjs"
   },
