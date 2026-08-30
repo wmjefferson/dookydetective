@@ -29,10 +29,11 @@ Backend image API:
 npm run server
 ```
 
-The repo now supports a fully local loop by default:
+The repo now supports a shared-library local loop by default:
 
 - the frontend reads [`.env.development`](/C:/Users/wmjef/Desktop/Precious%20Box/Dotcoms/dookydetective/.env.development)
-- the backend falls back to the repo-local [`images`](/C:/Users/wmjef/Desktop/Precious%20Box/Dotcoms/dookydetective/images) folder if `E:\dookydetective\images` is not available
+- the backend prefers `E:\images\dookydetective`
+- if that is unavailable, it falls back to `\\JEFFERSHIZZLE-D\Dotcoms E\images\dookydetective`
 - the backend defaults `PUBLIC_BASE_URL` to `http://localhost:8020` when no production env is set
 
 ## Environment
@@ -50,7 +51,9 @@ Important variables:
 
 - frontend hosted at `https://dookydetective.com`
 - backend served from home server at `https://api.dookydetective.com`
-- image library stored at `E:\dookydetective\images`
+- media library stored at `E:\images\dookydetective`
+- photos live under `E:\images\dookydetective\photos`
+- video can live under `E:\images\dookydetective\video`
 
 ## Notes
 

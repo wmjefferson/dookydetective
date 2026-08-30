@@ -41,7 +41,6 @@ const replaceBeforeCopy = [
 
 const preserveOnTarget = [
   '.env',
-  'images',
   'node_modules',
 ];
 

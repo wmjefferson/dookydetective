@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -7,27 +7,26 @@ const SIDE_GUTTER = 36;
 const TOTAL_BANNER_HEIGHT = BANNER_HEIGHT * 2;
 const TOTAL_SIDE_GUTTER = SIDE_GUTTER * 2;
 
-const pickValidImageSet = (pool: any[]) => {
+// ---------------------------------------------------------------------------
+// Media pool helpers
+// ---------------------------------------------------------------------------
+
+const pickValidMediaSet = (pool: any[]) => {
   if (pool.length < 10) return pool;
-  
+
   let arr = [];
   let attempts = 0;
   while (attempts < 1000) {
     attempts++;
-    // Shuffle the array
     arr = [...pool].sort(() => 0.5 - Math.random()).slice(0, 10);
-    
-    // Calculate aspect ratio sums for each row
-    const ar1 = arr.slice(0, 3).reduce((sum, img) => sum + (img.width / img.height), 0);
-    const ar2 = arr.slice(3, 7).reduce((sum, img) => sum + (img.width / img.height), 0);
-    const ar3 = arr.slice(7, 10).reduce((sum, img) => sum + (img.width / img.height), 0);
-    
-    // Ensure the middle row (4 images) is strictly wider than the top and bottom rows
-    if (ar2 > ar1 && ar2 > ar3) {
-      return arr;
-    }
+
+    const ar1 = arr.slice(0, 3).reduce((sum: number, m: any) => sum + (m.width / m.height), 0);
+    const ar2 = arr.slice(3, 7).reduce((sum: number, m: any) => sum + (m.width / m.height), 0);
+    const ar3 = arr.slice(7, 10).reduce((sum: number, m: any) => sum + (m.width / m.height), 0);
+
+    if (ar2 > ar1 && ar2 > ar3) return arr;
   }
-  
+
   return arr;
 };
 
@@ -38,94 +37,34 @@ const generatePicsumImages = () => {
     { w: 1000, h: 600 }, { w: 600, h: 1000 }, { w: 800, h: 400 },
     { w: 400, h: 800 }
   ];
-  
-  const images = Array.from({ length: 10 }).map((_, i) => {
+
+  const images = Array.from({ length: 10 }).map(() => {
     const seed = Math.random().toString(36).substring(2, 9);
     const dim = dimensions[Math.floor(Math.random() * dimensions.length)];
     return {
       id: seed,
+      type: 'image' as const,
       src: `https://picsum.photos/seed/${seed}/${dim.w}/${dim.h}`,
       title: `IMG_${seed.toUpperCase()}.JPG`,
       width: dim.w,
-      height: dim.h
+      height: dim.h,
     };
   });
 
-  return pickValidImageSet(images);
+  return pickValidMediaSet(images);
 };
 
-function ImageCard({ src, title, width, height }: { src: string, title: string, width: number, height: number }) {
-  return (
-    <div style={{ flex: width / height, minWidth: 0 }}>
-      <img src={src} alt={title} className="w-full h-full object-cover block" referrerPolicy="no-referrer" />
-    </div>
-  )
-}
+// ---------------------------------------------------------------------------
+// Preload helpers
+// ---------------------------------------------------------------------------
 
-type BoardLayout = {
-  name: string;
-  rowCounts: number[];
-  equalRowWidths: boolean;
-};
-
-const boardLayouts = {
-  panorama: {
-    name: 'panorama',
-    rowCounts: [10],
-    equalRowWidths: false,
-  },
-  wide: {
-    name: 'wide',
-    rowCounts: [3, 4, 3],
-    equalRowWidths: false,
-  },
-  balanced: {
-    name: 'balanced',
-    rowCounts: [3, 4, 3],
-    equalRowWidths: true,
-  },
-  portrait: {
-    name: 'portrait',
-    rowCounts: [2, 3, 3, 2],
-    equalRowWidths: false,
-  },
-  ribbon: {
-    name: 'ribbon',
-    rowCounts: [1, 2, 1, 2, 1, 2, 1],
-    equalRowWidths: true,
-  },
-} satisfies Record<string, BoardLayout>;
-
-const getBoardLayout = (ratio: number): BoardLayout => {
-  if (ratio >= 2) return boardLayouts.panorama;
-  if (ratio >= 1.5) return boardLayouts.wide;
-  if (ratio >= 1) return boardLayouts.balanced;
-  if (ratio >= 0.5) return boardLayouts.portrait;
-  return boardLayouts.ribbon;
-};
-
-const splitRows = (images: any[], rowCounts: number[]) => {
-  let cursor = 0;
-  return rowCounts
-    .map(count => {
-      const row = images.slice(cursor, cursor + count);
-      cursor += count;
-      return row;
-    })
-    .filter(row => row.length > 0);
-};
-
-function preloadImage(src: string) {
-  return new Promise<void>((resolve, reject) => {
+function preloadPhoto(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
     const image = new window.Image();
     image.onload = async () => {
       try {
-        if (typeof image.decode === 'function') {
-          await image.decode();
-        }
-      } catch {
-        // Some browsers can reject decode() for otherwise usable images.
-      }
+        if (typeof image.decode === 'function') await image.decode();
+      } catch { /* ignore */ }
       resolve();
     };
     image.onerror = () => reject(new Error(`Failed to load ${src}`));
@@ -133,7 +72,127 @@ function preloadImage(src: string) {
   });
 }
 
-function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount }: { children: React.ReactNode, onRefresh: () => void, autoRefresh: 'Off' | number, setAutoRefresh: (val: 'Off' | number) => void, refreshCount: number }) {
+function preloadPoster(src: string | undefined): Promise<void> {
+  if (!src) return Promise.resolve();
+  return preloadPhoto(src);
+}
+
+// ---------------------------------------------------------------------------
+// Media cards
+// ---------------------------------------------------------------------------
+
+function PhotoCard({ src, title, width, height }: { src: string; title: string; width: number; height: number }) {
+  return (
+    <div style={{ flex: width / height, minWidth: 0 }}>
+      <img src={src} alt={title} className="w-full h-full object-cover block" referrerPolicy="no-referrer" />
+    </div>
+  );
+}
+
+function VideoCard({ src, poster, title, width, height }: { src: string; poster?: string; title: string; width: number; height: number }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Direct DOM properties needed for browser autoplay policy
+    video.defaultMuted = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.loop = true;
+
+    // Start playback once
+    video.play().catch(() => {
+      // If browser blocks autoplay before user gesture, start on first click/touch
+      const resume = () => {
+        video.play().catch(() => {});
+      };
+      window.addEventListener('click', resume, { once: true });
+      window.addEventListener('touchstart', resume, { once: true });
+    });
+
+    // Fallback loop listener in case browser native loop event is delayed
+    const onEnded = () => {
+      video.currentTime = 0;
+      video.play().catch(() => {});
+    };
+    video.addEventListener('ended', onEnded);
+
+    return () => {
+      video.removeEventListener('ended', onEnded);
+    };
+  }, [src]);
+
+  return (
+    <div style={{ flex: width / height, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
+      <video
+        ref={videoRef}
+        src={src}
+        poster={poster}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className="w-full h-full object-cover block"
+        aria-label={title}
+      />
+    </div>
+  );
+}
+
+function MediaCard({ item }: { item: any }) {
+  if (item.type === 'video') {
+    return <VideoCard src={item.src} poster={item.poster} title={item.title} width={item.width} height={item.height} />;
+  }
+  return <PhotoCard src={item.src} title={item.title} width={item.width} height={item.height} />;
+}
+
+// ---------------------------------------------------------------------------
+// Board layout
+// ---------------------------------------------------------------------------
+
+type BoardLayout = { name: string; rowCounts: number[]; equalRowWidths: boolean };
+
+const boardLayouts = {
+  panorama: { name: 'panorama', rowCounts: [10], equalRowWidths: false },
+  wide:     { name: 'wide',     rowCounts: [3, 4, 3], equalRowWidths: false },
+  balanced: { name: 'balanced', rowCounts: [3, 4, 3], equalRowWidths: true },
+  portrait: { name: 'portrait', rowCounts: [2, 3, 3, 2], equalRowWidths: false },
+  ribbon:   { name: 'ribbon',   rowCounts: [1, 2, 1, 2, 1, 2, 1], equalRowWidths: true },
+} satisfies Record<string, BoardLayout>;
+
+const getBoardLayout = (ratio: number): BoardLayout => {
+  if (ratio >= 2.28) return boardLayouts.panorama;
+  if (ratio >= 1.5) return boardLayouts.wide;
+  if (ratio >= 1) return boardLayouts.balanced;
+  if (ratio >= 0.5) return boardLayouts.portrait;
+  return boardLayouts.ribbon;
+};
+
+const splitRows = (items: any[], rowCounts: number[]) => {
+  let cursor = 0;
+  return rowCounts
+    .map(count => {
+      const row = items.slice(cursor, cursor + count);
+      cursor += count;
+      return row;
+    })
+    .filter(row => row.length > 0);
+};
+
+// ---------------------------------------------------------------------------
+// Layout shell
+// ---------------------------------------------------------------------------
+
+function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount }: {
+  children: React.ReactNode;
+  onRefresh: () => void;
+  autoRefresh: 'Off' | number;
+  setAutoRefresh: (val: 'Off' | number) => void;
+  refreshCount: number;
+}) {
   const location = useLocation();
   const isHome = location.pathname === '/';
 
@@ -185,8 +244,8 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
           )}
         </div>
         {isHome ? (
-          <Link 
-            to="/about" 
+          <Link
+            to="/about"
             className="font-sans font-semibold text-sm leading-none tracking-normal text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
           >
             Jefferson Williams
@@ -194,18 +253,18 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
         ) : (
           <p className="m-0 leading-none text-gray-500 text-sm font-sans">
             Dooky Detective &copy; {new Date().getFullYear()}{' '}
-            <a 
-              href="https://jeffersonwm.com" 
-              target="_blank" 
+            <a
+              href="https://jeffersonwm.com"
+              target="_blank"
               rel="noopener noreferrer"
               className="font-semibold text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
             >
               Jefferson Williams
             </a>
             . All rights reserved.{' '}
-            <a 
-              href="https://github.com/wmjefferson/dookydetective" 
-              target="_blank" 
+            <a
+              href="https://github.com/wmjefferson/dookydetective"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
             >
@@ -219,61 +278,56 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
   );
 }
 
-function Home({ images }: { images: any[] }) {
+// ---------------------------------------------------------------------------
+// Home board
+// ---------------------------------------------------------------------------
+
+function Home({ media }: { media: any[] }) {
   const [boardReady, setBoardReady] = useState(false);
-  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  // Initialize with actual dimensions immediately — avoids a layout-resize reflow that
+  // can cause some browsers to reset the <video> element's playback state mid-stream.
+  const [viewport, setViewport] = useState(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1280,
+    height: typeof window !== 'undefined' ? window.innerHeight : 720,
+  }));
 
   useEffect(() => {
     let cancelled = false;
     setBoardReady(false);
 
-    Promise.all(images.map(image => preloadImage(image.src)))
-      .catch(() => {
-        // If one image has trouble loading, avoid hanging the whole board forever.
-      })
-      .finally(() => {
-        if (!cancelled) {
-          requestAnimationFrame(() => {
-            if (!cancelled) {
-              setBoardReady(true);
-            }
-          });
-        }
-      });
+    // Preload photos fully; for videos just preload the poster still
+    const preloads = media.map(item =>
+      item.type === 'video' ? preloadPoster(item.poster) : preloadPhoto(item.src)
+    );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [images]);
+    Promise.allSettled(preloads).finally(() => {
+      if (!cancelled) {
+        requestAnimationFrame(() => {
+          if (!cancelled) setBoardReady(true);
+        });
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [media]);
 
   useEffect(() => {
-    const updateViewport = () => {
-      setViewport({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-    };
-
-    updateViewport();
+    const updateViewport = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener('resize', updateViewport);
     return () => window.removeEventListener('resize', updateViewport);
   }, []);
 
-  if (images.length === 0) return null;
+  if (media.length === 0) return null;
 
-  const gap = 8; // 8px gap
+  const gap = 8;
   const viewportRatio = viewport.height > 0 ? viewport.width / viewport.height : 16 / 9;
   const layout = getBoardLayout(viewportRatio);
-  const rows = splitRows(images, layout.rowCounts);
+  const rows = splitRows(media, layout.rowCounts);
 
-  const rowARs = rows.map(row => row.reduce((sum, img) => sum + (img.width / img.height), 0));
+  const rowARs = rows.map(row => row.reduce((sum: number, m: any) => sum + (m.width / m.height), 0));
   const rowGapPixels = rows.map(row => (row.length - 1) * gap);
-  const headerHeight = BANNER_HEIGHT;
-  const footerHeight = BANNER_HEIGHT;
-  const pagePaddingX = TOTAL_SIDE_GUTTER;
-  const mainVerticalPadding = TOTAL_BANNER_HEIGHT;
-  const availableWidth = Math.max(320, viewport.width - pagePaddingX);
-  const availableHeight = Math.max(320, viewport.height - headerHeight - footerHeight - mainVerticalPadding);
+  const availableWidth = Math.max(320, viewport.width - TOTAL_SIDE_GUTTER);
+  const availableHeight = Math.max(320, viewport.height - BANNER_HEIGHT - BANNER_HEIGHT - TOTAL_BANNER_HEIGHT);
   const maxBoardWidth = availableWidth * 0.9;
   const maxBoardHeight = availableHeight * 0.9;
   const totalVerticalGap = gap * (rows.length - 1);
@@ -282,32 +336,30 @@ function Home({ images }: { images: any[] }) {
   const sharedRowHeight = (() => {
     if (layout.equalRowWidths) return 0;
     const heightBound = (maxBoardHeight - totalVerticalGap) / rows.length;
-    const widthBound = Math.min(
-      ...rowARs.map((rowAR, index) => (maxBoardWidth - rowGapPixels[index]) / rowAR)
-    );
+    const widthBound = Math.min(...rowARs.map((ar, i) => (maxBoardWidth - rowGapPixels[i]) / ar));
     return Math.max(minRowHeight, Math.floor(Math.min(heightBound, widthBound)));
   })();
 
   const equalBoardWidth = (() => {
     if (!layout.equalRowWidths) return 0;
-    const inverseAspectSum = rowARs.reduce((sum, rowAR) => sum + (1 / rowAR), 0);
-    const gapAspectOffset = rowGapPixels.reduce((sum, rowGap, index) => sum + (rowGap / rowARs[index]), 0);
+    const inverseAspectSum = rowARs.reduce((sum, ar) => sum + (1 / ar), 0);
+    const gapAspectOffset = rowGapPixels.reduce((sum, rowGap, i) => sum + (rowGap / rowARs[i]), 0);
     const heightBoundWidth = (maxBoardHeight - totalVerticalGap + gapAspectOffset) / inverseAspectSum;
     return Math.max(260, Math.floor(Math.min(maxBoardWidth, heightBoundWidth)));
   })();
 
-  const rowHeights = rows.map((_, index) => (
+  const rowHeights = rows.map((_, i) =>
     layout.equalRowWidths
-      ? Math.max(minRowHeight, Math.floor((equalBoardWidth - rowGapPixels[index]) / rowARs[index]))
+      ? Math.max(minRowHeight, Math.floor((equalBoardWidth - rowGapPixels[i]) / rowARs[i]))
       : sharedRowHeight
-  ));
-  const rowWidths = rows.map((_, index) => (
+  );
+  const rowWidths = rows.map((_, i) =>
     layout.equalRowWidths
       ? equalBoardWidth
-      : Math.floor(sharedRowHeight * rowARs[index] + rowGapPixels[index])
-  ));
+      : Math.floor(sharedRowHeight * rowARs[i] + rowGapPixels[i])
+  );
   const boardWidth = Math.max(...rowWidths);
-  const boardHeight = Math.floor(rowHeights.reduce((sum, height) => sum + height, 0) + totalVerticalGap);
+  const boardHeight = Math.floor(rowHeights.reduce((sum, h) => sum + h, 0) + totalVerticalGap);
 
   return (
     <div
@@ -321,81 +373,90 @@ function Home({ images }: { images: any[] }) {
         opacity: boardReady ? 1 : 0,
       }}
     >
-      {rows.map((row, i) => {
-        return (
-          <div 
-            key={i} 
-            className="flex flex-row gap-2"
-            style={{ width: `${rowWidths[i]}px`, height: `${rowHeights[i]}px` }}
-          >
-            {row.map(img => (
-              <React.Fragment key={img.id}>
-                <ImageCard src={img.src} title={img.title} width={img.width} height={img.height} />
-              </React.Fragment>
-            ))}
-          </div>
-        );
-      })}
+      {rows.map((row, i) => (
+        <div
+          key={i}
+          className="flex flex-row gap-2"
+          style={{ width: `${rowWidths[i]}px`, height: `${rowHeights[i]}px` }}
+        >
+          {row.map((item: any) => (
+            <React.Fragment key={item.id}>
+              <MediaCard item={item} />
+            </React.Fragment>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// About
+// ---------------------------------------------------------------------------
 
 function About() {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// App root
+// ---------------------------------------------------------------------------
+
 function AppContent() {
-  const [images, setImages] = useState<any[]>([]);
+  const [media, setMedia] = useState<any[]>([]);
   const [serverPool, setServerPool] = useState<any[] | null>(null);
   const [autoRefresh, setAutoRefresh] = useState<'Off' | number>('Off');
   const [refreshCount, setRefreshCount] = useState(0);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/images`)
+    // Try /api/media first; fall back to /api/images for older backends
+    fetch(`${API_BASE}/api/media`)
       .then(res => {
-        const contentType = res.headers.get("content-type");
-        if (res.ok && contentType && contentType.includes("application/json")) {
-          return res.json();
-        }
-        throw new Error('PHP script not available');
+        const ct = res.headers.get('content-type');
+        if (res.ok && ct?.includes('application/json')) return res.json();
+        throw new Error('media endpoint unavailable');
       })
+      .catch(() =>
+        fetch(`${API_BASE}/api/images`).then(res => {
+          const ct = res.headers.get('content-type');
+          if (res.ok && ct?.includes('application/json')) return res.json();
+          throw new Error('images endpoint unavailable');
+        })
+      )
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setServerPool(data);
-          setImages(pickValidImageSet(data));
+          setMedia(pickValidMediaSet(data));
         } else {
           setServerPool([]);
-          setImages(generatePicsumImages());
+          setMedia(generatePicsumImages());
         }
       })
       .catch(() => {
-        // Fallback for local dev or if script is missing
         setServerPool([]);
-        setImages(generatePicsumImages());
+        setMedia(generatePicsumImages());
       });
   }, []);
 
   const handleRefresh = useCallback(() => {
     if (serverPool && serverPool.length > 0) {
-      setImages(pickValidImageSet(serverPool));
+      setMedia(pickValidMediaSet(serverPool));
     } else {
-      setImages(generatePicsumImages());
+      setMedia(generatePicsumImages());
     }
     setRefreshCount(c => c + 1);
   }, [serverPool]);
 
   useEffect(() => {
     if (autoRefresh === 'Off') return;
-    const intervalId = setInterval(() => {
-      handleRefresh();
-    }, autoRefresh * 1000);
+    const intervalId = setInterval(handleRefresh, (autoRefresh as number) * 1000);
     return () => clearInterval(intervalId);
   }, [autoRefresh, handleRefresh]);
 
   return (
     <Layout onRefresh={handleRefresh} autoRefresh={autoRefresh} setAutoRefresh={setAutoRefresh} refreshCount={refreshCount}>
       <Routes>
-        <Route path="/" element={<Home images={images} />} />
+        <Route path="/" element={<Home media={media} />} />
         <Route path="/about" element={<About />} />
       </Routes>
     </Layout>

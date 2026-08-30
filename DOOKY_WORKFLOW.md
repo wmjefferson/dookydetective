@@ -24,7 +24,7 @@ Use this mode when you are:
 - repo: `C:\Users\wmjef\Desktop\Precious Box\Dotcoms\dookydetective`
 - local backend file: `server.ts`
 - local frontend files: `src\...`
-- local image fallback folder: `images\`
+- shared media root: `\\JEFFERSHIZZLE-D\Dotcoms E\images\dookydetective`
 
 ### Local commands
 
@@ -52,8 +52,8 @@ npm run server
 
 - frontend uses `.env.development`
 - frontend points to `http://localhost:8020`
-- backend will try `E:\dookydetective\images` first
-- if that is unavailable, backend falls back to the repo-local `images\` folder
+- backend will try `E:\images\dookydetective` first
+- if that is unavailable, backend falls back to `\\JEFFERSHIZZLE-D\Dotcoms E\images\dookydetective`
 
 ## 2. Production Deployment
 
@@ -72,7 +72,7 @@ Frontend host:
 Backend host:
 
 - `E:\dookydetective\backend`
-- `E:\dookydetective\images`
+- `E:\images\dookydetective`
 
 Public API:
 
@@ -185,7 +185,7 @@ The source of truth for code is:
 
 The source of truth for live production images is:
 
-- `E:\dookydetective\images`
+- `E:\images\dookydetective`
 
 The source of truth for the live frontend build output is:
 

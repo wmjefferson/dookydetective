@@ -1,7 +1,7 @@
 {
   "name": "dookydetective",
   "private": true,
-  "version": "0.0.7",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -14,7 +14,9 @@
     "version:minor": "npm version minor --no-git-tag-version",
     "version:major": "npm version major --no-git-tag-version",
     "lint": "tsc --noEmit",
-    "publish": "node scripts/publish.mjs"
+    "publish": "node scripts/publish.mjs",
+    "upload:media": "node scripts/upload-media.mjs",
+    "optimize:videos": "powershell -ExecutionPolicy Bypass -File scripts/optimize-videos.ps1"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
