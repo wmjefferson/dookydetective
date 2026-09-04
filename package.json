@@ -5,18 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
+    "build": "vite build && node ..\\jeffersonwm\\scripts\\finish-stamp.mjs --label \"build\"",
     "preview": "vite preview",
     "server": "tsx server.ts",
-    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\" && node ..\\jeffersonwm\\scripts\\finish-stamp.mjs --label \"clean\"",
     "version": "node -e \"console.log('Use npm run version:patch, npm run version:minor, or npm run version:major')\"",
-    "version:patch": "npm version patch --no-git-tag-version",
-    "version:minor": "npm version minor --no-git-tag-version",
-    "version:major": "npm version major --no-git-tag-version",
-    "lint": "tsc --noEmit",
-    "publish": "node scripts/publish.mjs",
-    "upload:media": "node scripts/upload-media.mjs",
-    "optimize:videos": "powershell -ExecutionPolicy Bypass -File scripts/optimize-videos.ps1"
+    "version:patch": "npm version patch --no-git-tag-version && node ..\\jeffersonwm\\scripts\\finish-stamp.mjs --label \"version:patch\"",
+    "version:minor": "npm version minor --no-git-tag-version && node ..\\jeffersonwm\\scripts\\finish-stamp.mjs --label \"version:minor\"",
+    "version:major": "npm version major --no-git-tag-version && node ..\\jeffersonwm\\scripts\\finish-stamp.mjs --label \"version:major\"",
+    "lint": "tsc --noEmit && node ..\\jeffersonwm\\scripts\\finish-stamp.mjs --label \"lint\"",
+    "publish": "node scripts/publish.mjs && node ..\\jeffersonwm\\scripts\\finish-stamp.mjs --label \"publish\"",
+    "upload:media": "node scripts/upload-media.mjs && node ..\\jeffersonwm\\scripts\\finish-stamp.mjs --label \"upload:media\"",
+    "optimize:videos": "powershell -ExecutionPolicy Bypass -File scripts/optimize-videos.ps1 && node ..\\jeffersonwm\\scripts\\finish-stamp.mjs --label \"optimize:videos\""
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

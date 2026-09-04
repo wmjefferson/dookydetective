@@ -186,12 +186,13 @@ const splitRows = (items: any[], rowCounts: number[]) => {
 // Layout shell
 // ---------------------------------------------------------------------------
 
-function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount }: {
+function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount, loading }: {
   children: React.ReactNode;
   onRefresh: () => void;
   autoRefresh: 'Off' | number;
   setAutoRefresh: (val: 'Off' | number) => void;
   refreshCount: number;
+  loading?: boolean;
 }) {
   const location = useLocation();
   const isHome = location.pathname === '/';
@@ -212,7 +213,7 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
           onClick={handleLogoClick}
           className="font-sans font-semibold text-sm leading-none tracking-normal text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
         >
-          Dooky Detective
+          Dooky Detective{isHome && loading ? ' - Loading' : ''}
         </Link>
       </header>
 
@@ -243,36 +244,27 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
             </>
           )}
         </div>
-        {isHome ? (
-          <Link
-            to="/about"
-            className="font-sans font-semibold text-sm leading-none tracking-normal text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
+        <p className="m-0 leading-none text-gray-500 text-sm font-sans">
+          &copy; {new Date().getFullYear()}{' '}
+          <a
+            href="https://jeffersonwm.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
           >
             Jefferson Williams
-          </Link>
-        ) : (
-          <p className="m-0 leading-none text-gray-500 text-sm font-sans">
-            Dooky Detective &copy; {new Date().getFullYear()}{' '}
-            <a
-              href="https://jeffersonwm.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
-            >
-              Jefferson Williams
-            </a>
-            . All rights reserved.{' '}
-            <a
-              href="https://github.com/wmjefferson/dookydetective"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
-            >
-              GitHub
-            </a>
-            .
-          </p>
-        )}
+          </a>
+          . All rights reserved.{` `}
+          <a
+            href="https://github.com/wmjefferson/dookydetective"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-900 hover:text-[#de8bf7] transition-colors duration-1000 hover:duration-150"
+          >
+            GitHub
+          </a>
+          .
+        </p>
       </footer>
     </div>
   );
@@ -282,7 +274,7 @@ function Layout({ children, onRefresh, autoRefresh, setAutoRefresh, refreshCount
 // Home board
 // ---------------------------------------------------------------------------
 
-function Home({ media }: { media: any[] }) {
+function Home({ media, onLoadingChange }: { media: any[]; onLoadingChange?: (loading: boolean) => void }) {
   const [boardReady, setBoardReady] = useState(false);
   // Initialize with actual dimensions immediately — avoids a layout-resize reflow that
   // can cause some browsers to reset the <video> element's playback state mid-stream.
@@ -294,6 +286,7 @@ function Home({ media }: { media: any[] }) {
   useEffect(() => {
     let cancelled = false;
     setBoardReady(false);
+    onLoadingChange?.(true);
 
     // Preload photos fully; for videos just preload the poster still
     const preloads = media.map(item =>
@@ -303,13 +296,16 @@ function Home({ media }: { media: any[] }) {
     Promise.allSettled(preloads).finally(() => {
       if (!cancelled) {
         requestAnimationFrame(() => {
-          if (!cancelled) setBoardReady(true);
+          if (!cancelled) {
+            setBoardReady(true);
+            onLoadingChange?.(false);
+          }
         });
       }
     });
 
     return () => { cancelled = true; };
-  }, [media]);
+  }, [media, onLoadingChange]);
 
   useEffect(() => {
     const updateViewport = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
@@ -391,22 +387,12 @@ function Home({ media }: { media: any[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// About
-// ---------------------------------------------------------------------------
-
-function About() {
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// App root
-// ---------------------------------------------------------------------------
-
 function AppContent() {
   const [media, setMedia] = useState<any[]>([]);
   const [serverPool, setServerPool] = useState<any[] | null>(null);
   const [autoRefresh, setAutoRefresh] = useState<'Off' | number>('Off');
   const [refreshCount, setRefreshCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Try /api/media first; fall back to /api/images for older backends
@@ -439,6 +425,7 @@ function AppContent() {
   }, []);
 
   const handleRefresh = useCallback(() => {
+    setLoading(true);
     if (serverPool && serverPool.length > 0) {
       setMedia(pickValidMediaSet(serverPool));
     } else {
@@ -454,10 +441,15 @@ function AppContent() {
   }, [autoRefresh, handleRefresh]);
 
   return (
-    <Layout onRefresh={handleRefresh} autoRefresh={autoRefresh} setAutoRefresh={setAutoRefresh} refreshCount={refreshCount}>
+    <Layout
+      onRefresh={handleRefresh}
+      autoRefresh={autoRefresh}
+      setAutoRefresh={setAutoRefresh}
+      refreshCount={refreshCount}
+      loading={loading}
+    >
       <Routes>
-        <Route path="/" element={<Home media={media} />} />
-        <Route path="/about" element={<About />} />
+        <Route path="*" element={<Home media={media} onLoadingChange={setLoading} />} />
       </Routes>
     </Layout>
   );
