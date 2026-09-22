@@ -284,6 +284,12 @@ function Home({ media, onLoadingChange }: { media: any[]; onLoadingChange?: (loa
   }));
 
   useEffect(() => {
+    if (media.length === 0) {
+      setBoardReady(false);
+      onLoadingChange?.(true);
+      return;
+    }
+
     let cancelled = false;
     setBoardReady(false);
     onLoadingChange?.(true);
